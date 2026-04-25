@@ -1,14 +1,28 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>mvadel.com</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,300;0,400;0,500;0,700;1,400&display=swap" rel="stylesheet">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>mvadel.com — Browser Fingerprint Test</title>
+  <meta name="theme-color" content="#0d1117" />
+  <meta
+    name="description"
+    content="Browser fingerprint, privacy, WebRTC leak, permission, and runtime diagnostics."
+  />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,300;0,400;0,500;0,700;1,400&display=swap"
+    rel="stylesheet"
+  />
+
   <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
 
     :root {
       --bg:   #0d1117;
@@ -16,10 +30,12 @@
       --s2:   #1c2128;
       --s3:   #21262d;
       --br:   #30363d;
-      --br2:  rgba(48,54,61,.45);
+      --br2:  rgba(48, 54, 61, 0.45);
+
       --t:    #e6edf3;
       --mu:   #8b949e;
       --fa:   #484f58;
+
       --b:    #58a6ff;
       --g:    #3fb950;
       --y:    #d29922;
@@ -28,7 +44,10 @@
       --o:    #ffa657;
     }
 
-    html { scroll-behavior: smooth; -webkit-font-smoothing: antialiased; }
+    html {
+      scroll-behavior: smooth;
+      -webkit-font-smoothing: antialiased;
+    }
 
     body {
       background: var(--bg);
@@ -40,7 +59,28 @@
       padding: 0 16px 80px;
     }
 
-    /* ── Header ───────────────────────────────────────────────── */
+    img, video {
+      max-width: 100%;
+      display: block;
+    }
+
+    a {
+      color: var(--b);
+      text-decoration: none;
+    }
+
+    a:hover {
+      text-decoration: underline;
+    }
+
+    button,
+    input,
+    textarea,
+    select {
+      font: inherit;
+    }
+
+    /* Header */
     .header {
       max-width: 960px;
       margin: 0 auto;
@@ -48,97 +88,185 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      border-bottom: 1px solid var(--br);
       gap: 16px;
       flex-wrap: wrap;
+      border-bottom: 1px solid var(--br);
     }
 
-    .logo { display: flex; align-items: center; gap: 14px; }
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
 
     .logo-mark {
-      width: 44px; height: 44px;
-      background: linear-gradient(135deg, #1f6feb 0%, #8957e5 100%);
+      width: 44px;
+      height: 44px;
       border-radius: 10px;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 20px; font-weight: 700; color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
       flex-shrink: 0;
-      box-shadow: 0 0 20px rgba(88,86,214,.35);
+      font-size: 20px;
+      font-weight: 700;
+      color: #fff;
+      background: linear-gradient(135deg, #1f6feb 0%, #8957e5 100%);
+      box-shadow: 0 0 20px rgba(88, 86, 214, 0.35);
     }
 
-    .logo-text h1 { font-size: 17px; font-weight: 700; letter-spacing: -.3px; }
+    .logo-text h1 {
+      font-size: 17px;
+      font-weight: 700;
+      letter-spacing: -0.3px;
+    }
 
     .logo-sub {
-      font-size: 10px; color: var(--mu);
-      letter-spacing: 1.5px; text-transform: uppercase;
       margin-top: 2px;
+      font-size: 10px;
+      color: var(--mu);
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
     }
 
-    .header-right { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+    .header-right {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 6px;
+    }
 
     .badge {
-      background: var(--s2); border: 1px solid var(--br);
-      border-radius: 6px; padding: 4px 10px;
-      font-size: 11px; color: var(--mu);
+      background: var(--s2);
+      border: 1px solid var(--br);
+      border-radius: 6px;
+      padding: 4px 10px;
+      font-size: 11px;
+      color: var(--mu);
     }
 
-    #visit-count { font-size: 10px; color: var(--fa); }
+    #visit-count {
+      font-size: 10px;
+      color: var(--fa);
+    }
 
-    /* ── Scan bar ─────────────────────────────────────────────── */
+    /* Scan bar */
     .scan-bar {
-      max-width: 960px; margin: 20px auto 0;
-      background: var(--s1); border: 1px solid var(--br);
-      border-radius: 8px; padding: 14px 18px;
-      display: flex; align-items: center; gap: 14px;
-      transition: border-color .4s ease;
+      max-width: 960px;
+      margin: 20px auto 0;
+      padding: 14px 18px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      background: var(--s1);
+      border: 1px solid var(--br);
+      border-radius: 8px;
+      transition: border-color 0.4s ease;
     }
 
-    #scan-label { font-size: 11px; color: var(--g); white-space: nowrap; min-width: 140px; }
-    #scan-pct   { font-size: 11px; color: var(--g); min-width: 32px; text-align: right; }
+    #scan-label {
+      min-width: 140px;
+      white-space: nowrap;
+      font-size: 11px;
+      color: var(--g);
+    }
 
-    .track { flex: 1; height: 3px; background: var(--br); border-radius: 2px; overflow: hidden; }
+    #scan-pct {
+      min-width: 32px;
+      text-align: right;
+      font-size: 11px;
+      color: var(--g);
+    }
+
+    .track {
+      flex: 1;
+      height: 3px;
+      background: var(--br);
+      border-radius: 2px;
+      overflow: hidden;
+    }
 
     #progress-fill {
-      height: 100%; width: 0%;
+      width: 0%;
+      height: 100%;
       background: linear-gradient(90deg, #1f6feb, var(--g));
       border-radius: 2px;
-      transition: width .35s cubic-bezier(.4,0,.2,1);
-      box-shadow: 0 0 8px rgba(63,185,80,.5);
+      transition: width 0.35s cubic-bezier(.4, 0, .2, 1);
+      box-shadow: 0 0 8px rgba(63, 185, 80, 0.5);
     }
 
-    /* ── Summary strip ────────────────────────────────────────── */
+    /* Summary */
     #summary {
-      max-width: 960px; margin: 16px auto 0;
-      background: var(--s1); border: 1px solid var(--br);
-      border-radius: 8px; padding: 18px 22px;
+      max-width: 960px;
+      margin: 16px auto 0;
+      padding: 18px 22px;
       display: none;
       grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
       gap: 18px;
+      background: var(--s1);
+      border: 1px solid var(--br);
+      border-radius: 8px;
     }
 
-    .s-item { display: flex; flex-direction: column; gap: 4px; }
+    .s-item {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      min-width: 0;
+    }
 
     .s-lbl {
-      font-size: 9px; color: var(--fa);
-      text-transform: uppercase; letter-spacing: 1.2px;
+      font-size: 9px;
+      color: var(--fa);
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
     }
 
-    .s-val { font-size: 15px; font-weight: 700; color: var(--b); }
-    .s-val.sm { font-size: 13px; }
-    .s-val.xs { font-size: 11px; font-weight: 500; color: var(--p); letter-spacing: .5px; }
+    .s-val {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--b);
+      word-break: break-word;
+    }
 
-    /* ── Grid ─────────────────────────────────────────────────── */
+    .s-val.sm {
+      font-size: 13px;
+    }
+
+    .s-val.xs {
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--p);
+      letter-spacing: 0.5px;
+    }
+
+    /* Main grid */
     #main-grid {
-      max-width: 960px; margin: 16px auto 0;
+      max-width: 960px;
+      margin: 16px auto 0;
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 14px;
     }
 
-    @media (max-width: 660px) { #main-grid { grid-template-columns: 1fr; } }
+    @media (max-width: 660px) {
+      #main-grid {
+        grid-template-columns: 1fr;
+      }
 
-    .card-full { grid-column: 1 / -1; }
+      .scan-bar {
+        flex-wrap: wrap;
+      }
 
-    /* ── Card ─────────────────────────────────────────────────── */
+      #scan-label {
+        min-width: auto;
+      }
+    }
+
+    .card-full {
+      grid-column: 1 / -1;
+    }
+
+    /* Card */
     .card {
       background: var(--s1);
       border: 1px solid var(--br);
@@ -148,109 +276,234 @@
 
     .card-header {
       padding: 10px 14px;
-      border-bottom: 1px solid var(--br);
+      display: flex;
+      align-items: center;
+      gap: 8px;
       background: var(--s2);
-      display: flex; align-items: center; gap: 8px;
+      border-bottom: 1px solid var(--br);
     }
 
-    .card-icon  { font-size: 13px; }
+    .card-icon {
+      font-size: 13px;
+      line-height: 1;
+    }
 
     .card-title {
-      font-size: 10px; font-weight: 700;
-      text-transform: uppercase; letter-spacing: 1px;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
       color: var(--t);
     }
 
-    /* ── Rows ─────────────────────────────────────────────────── */
+    .card-body {
+      width: 100%;
+    }
+
+    /* Rows */
     .row {
-      display: flex; align-items: flex-start;
-      padding: 7px 14px; gap: 10px;
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 7px 14px;
       border-bottom: 1px solid var(--br2);
     }
-    .row:last-child { border-bottom: none; }
 
-    .lbl {
-      color: var(--mu); font-size: 10px;
-      min-width: 130px; flex-shrink: 0;
-      padding-top: 2px; line-height: 1.4;
+    .row:last-child {
+      border-bottom: none;
     }
 
-    .val { font-size: 11.5px; word-break: break-word; flex: 1; line-height: 1.5; }
+    .lbl {
+      min-width: 130px;
+      flex-shrink: 0;
+      padding-top: 2px;
+      font-size: 10px;
+      line-height: 1.4;
+      color: var(--mu);
+    }
 
-    /* colour helpers */
+    .val {
+      flex: 1;
+      min-width: 0;
+      font-size: 11.5px;
+      line-height: 1.5;
+      word-break: break-word;
+      overflow-wrap: anywhere;
+    }
+
+    .val img {
+      margin-top: 4px;
+      border-radius: 8px;
+    }
+
+    /* Helpers */
     .blue   { color: var(--b); }
     .green  { color: var(--g); }
     .yellow { color: var(--y); }
     .red    { color: var(--r); }
     .purple { color: var(--p); }
     .orange { color: var(--o); }
-    .dim    { color: var(--fa); font-size: 10px; }
-    .mono-sm{ font-size: 9.5px; word-break: break-all; line-height: 1.4; }
 
-    /* ── Tags ─────────────────────────────────────────────────── */
+    .dim {
+      color: var(--fa);
+      font-size: 10px;
+    }
+
+    .mono-sm {
+      font-size: 9.5px;
+      line-height: 1.45;
+      word-break: break-all;
+      color: var(--t);
+    }
+
+    /* Tags */
     .tag {
-      display: inline-block; padding: 1px 7px;
-      border-radius: 4px; font-size: 9.5px;
-      font-weight: 700; text-transform: uppercase; letter-spacing: .4px;
+      display: inline-block;
+      padding: 1px 7px;
+      border-radius: 4px;
+      font-size: 9.5px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
     }
-    .tag-green  { background: rgba(63,185,80,.14);  color: var(--g); }
-    .tag-red    { background: rgba(248,81,73,.14);  color: var(--r); }
-    .tag-yellow { background: rgba(210,153,34,.14); color: var(--y); }
-    .tag-blue   { background: rgba(88,166,255,.14); color: var(--b); }
 
-    /* ── Footer ───────────────────────────────────────────────── */
-    .footer {
-      max-width: 960px; margin: 44px auto 0;
-      padding-top: 20px; border-top: 1px solid var(--br);
+    .tag-green  { background: rgba(63, 185, 80, 0.14); color: var(--g); }
+    .tag-red    { background: rgba(248, 81, 73, 0.14); color: var(--r); }
+    .tag-yellow { background: rgba(210, 153, 34, 0.14); color: var(--y); }
+    .tag-blue   { background: rgba(88, 166, 255, 0.14); color: var(--b); }
+    .tag-purple { background: rgba(188, 140, 255, 0.14); color: var(--p); }
+    .tag-orange { background: rgba(255, 166, 87, 0.14); color: var(--o); }
+
+    /* Loading */
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+    .loading {
+      animation: pulse 1.4s ease-in-out infinite;
+      color: var(--fa);
+      font-size: 10px;
+    }
+
+    /* Speed test */
+    .speed-display {
       text-align: center;
-      color: var(--fa); font-size: 10.5px; line-height: 1.9;
+      padding: 16px 0 10px;
     }
-    .footer a { color: var(--b); text-decoration: none; }
-    .footer a:hover { text-decoration: underline; }
-    .footer strong { color: var(--mu); }
 
-    /* ── Loading pulse ────────────────────────────────────────── */
-    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
-    .loading { animation: pulse 1.4s ease-in-out infinite; color: var(--fa); font-size: 10px; }
+    .speed-bar-wrap {
+      padding: 0 14px 14px;
+    }
 
-    /* ── Speed Test Styles ─────────────────── */
-    .speed-display { text-align: center; padding: 16px 0 10px; }
-    .speed-bar-wrap { padding: 0 14px 14px; }
-    .speed-bar-bg { height: 6px; background: var(--s2); border-radius: 3px; overflow: hidden; }
-    .speed-bar-fill { height: 100%; width: 0%; background: linear-gradient(90deg, var(--b), var(--p)); transition: width 0.3s ease; }
+    .speed-bar-bg {
+      height: 6px;
+      background: var(--s2);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+
+    .speed-bar-fill {
+      width: 0%;
+      height: 100%;
+      background: linear-gradient(90deg, var(--b), var(--p));
+      transition: width 0.3s ease;
+    }
+
     .speed-run-btn {
-      display: block; width: calc(100% - 28px); margin: 12px 14px 14px;
-      padding: 8px 12px; background: var(--s2); border: 1px solid var(--br);
-      color: var(--t); border-radius: 6px; font-family: inherit;
-      font-size: 11px; cursor: pointer; transition: background 0.2s, border-color 0.2s;
+      display: block;
+      width: calc(100% - 28px);
+      margin: 12px 14px 14px;
+      padding: 8px 12px;
+      background: var(--s2);
+      border: 1px solid var(--br);
+      color: var(--t);
+      border-radius: 6px;
+      font-family: inherit;
+      font-size: 11px;
+      cursor: pointer;
+      transition: background 0.2s, border-color 0.2s, opacity 0.2s;
     }
-    .speed-run-btn:hover { background: var(--s3); border-color: var(--mu); }
-    .speed-run-btn:disabled { opacity: 0.5; cursor: wait; }
 
-    /* ── Raw JSON & Syntax Highlighting ───── */
-    .raw-wrap { padding: 10px 14px; }
+    .speed-run-btn:hover {
+      background: var(--s3);
+      border-color: var(--mu);
+    }
+
+    .speed-run-btn:disabled {
+      opacity: 0.5;
+      cursor: wait;
+    }
+
+    /* Raw JSON */
+    .raw-wrap {
+      padding: 10px 14px;
+    }
+
     .toggle-btn {
-      background: var(--s3); border: 1px solid var(--br); color: var(--mu);
-      padding: 4px 10px; border-radius: 4px; font-size: 9px;
-      cursor: pointer; font-family: inherit; margin-bottom: 8px;
+      margin-bottom: 8px;
+      padding: 4px 10px;
+      background: var(--s3);
+      border: 1px solid var(--br);
+      border-radius: 4px;
+      color: var(--mu);
+      font-size: 9px;
+      font-family: inherit;
+      cursor: pointer;
       transition: all 0.2s;
     }
-    .toggle-btn:hover { border-color: var(--mu); color: var(--t); }
-    .json-block {
-      background: var(--bg); border: 1px solid var(--br);
-      border-radius: 6px; padding: 12px;
-      font-size: 9px; line-height: 1.5;
-      overflow-x: auto; white-space: pre-wrap; word-break: break-all;
+
+    .toggle-btn:hover {
+      border-color: var(--mu);
+      color: var(--t);
     }
+
+    .json-block {
+      padding: 12px;
+      background: var(--bg);
+      border: 1px solid var(--br);
+      border-radius: 6px;
+      font-size: 9px;
+      line-height: 1.5;
+      white-space: pre-wrap;
+      word-break: break-all;
+      overflow-x: auto;
+    }
+
     .jk { color: var(--b); }
     .jv { color: var(--p); }
     .jb { color: var(--y); }
     .jn { color: var(--o); }
+
+    /* Footer */
+    .footer {
+      max-width: 960px;
+      margin: 44px auto 0;
+      padding-top: 20px;
+      border-top: 1px solid var(--br);
+      text-align: center;
+      color: var(--fa);
+      font-size: 10.5px;
+      line-height: 1.9;
+    }
+
+    .footer strong {
+      color: var(--mu);
+    }
+
+    .noscript {
+      max-width: 960px;
+      margin: 16px auto 0;
+      padding: 14px 18px;
+      border: 1px solid rgba(248, 81, 73, 0.35);
+      border-radius: 8px;
+      background: rgba(248, 81, 73, 0.08);
+      color: var(--t);
+      font-size: 12px;
+    }
   </style>
 </head>
 <body>
-
-  <!-- ── Header ──────────────────────────────────────────────────────── -->
   <header class="header">
     <div class="logo">
       <div class="logo-mark">M</div>
@@ -259,61 +512,73 @@
         <div class="logo-sub">Browser Fingerprint Test</div>
       </div>
     </div>
+
     <div class="header-right">
       <span class="badge" id="timer">Session: 0s</span>
       <span id="visit-count"></span>
     </div>
   </header>
 
-  <!-- ── Scan progress bar ────────────────────────────────────────────── -->
+  <noscript>
+    <div class="noscript">
+      JavaScript is required for this fingerprint and diagnostics page.
+    </div>
+  </noscript>
+
   <div class="scan-bar" id="scan-bar">
     <span id="scan-label">⟳ Initializing…</span>
-    <div class="track"><div id="progress-fill"></div></div>
+    <div class="track">
+      <div id="progress-fill"></div>
+    </div>
     <span id="scan-pct">0%</span>
   </div>
 
-  <!-- ── Summary strip ────────────────────────────────────────────────── -->
-  <div id="summary">
+  <section id="summary" aria-label="Scan summary">
     <div class="s-item">
       <span class="s-lbl">Public IP</span>
       <span class="s-val" id="s-ip">—</span>
     </div>
+
     <div class="s-item">
       <span class="s-lbl">Location</span>
       <span class="s-val sm" id="s-loc">—</span>
     </div>
+
     <div class="s-item">
       <span class="s-lbl">Browser</span>
       <span class="s-val sm" id="s-browser">—</span>
     </div>
+
     <div class="s-item">
       <span class="s-lbl">OS</span>
       <span class="s-val sm" id="s-os">—</span>
     </div>
+
     <div class="s-item">
       <span class="s-lbl">Fingerprint ID</span>
       <span class="s-val xs" id="s-fp">—</span>
     </div>
-  </div>
+  </section>
 
-  <!-- ── Data cards ───────────────────────────────────────────────────── -->
-  <div id="main-grid"></div>
+  <main id="main-grid" aria-live="polite"></main>
 
-  <!-- ── Footer ──────────────────────────────────────────────────────── -->
   <footer class="footer">
     <p>
-      Everything above was collected <strong>entirely client-side</strong> —
-      no data was sent to any server. This is a <strong>transparency & awareness tool</strong>.
+      This page runs most analysis in the browser, but some checks contact
+      <strong>external services</strong> for IP lookup, request-header echo,
+      WebRTC/STUN gathering, and the optional speed test.
     </p>
-    <p style="margin-top:6px">
-      Any website you visit can silently collect the same information. Stay aware.
+    <p style="margin-top: 6px;">
+      It is a <strong>transparency & awareness tool</strong> to show what a site
+      can learn about your browser and environment.
     </p>
-    <p style="margin-top:14px">
-      <a href="hey.txt">hey.txt</a> &nbsp;·&nbsp;
+    <p style="margin-top: 14px;">
+      <a href="hey.txt">hey.txt</a>
+      &nbsp;·&nbsp;
       <a href="https://github.com/mvadel" target="_blank" rel="noopener noreferrer">github</a>
     </p>
   </footer>
 
-  <script src="app.js"></script>
+  <script src="app.js" defer></script>
 </body>
 </html>
