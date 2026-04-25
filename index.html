@@ -2,149 +2,284 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>mvadel</title>
-
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>mvadel.com</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,300;0,400;0,500;0,700;1,400&display=swap" rel="stylesheet">
   <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:   #0d1117;
+      --s1:   #161b22;
+      --s2:   #1c2128;
+      --s3:   #21262d;
+      --br:   #30363d;
+      --br2:  rgba(48,54,61,.45);
+      --t:    #e6edf3;
+      --mu:   #8b949e;
+      --fa:   #484f58;
+      --b:    #58a6ff;
+      --g:    #3fb950;
+      --y:    #d29922;
+      --r:    #f85149;
+      --p:    #bc8cff;
+      --o:    #ffa657;
+    }
+
+    html { scroll-behavior: smooth; -webkit-font-smoothing: antialiased; }
+
     body {
-      margin: 0;
-      background: #0d1117;
-      color: #e6edf3;
-      font-family: monospace;
+      background: var(--bg);
+      color: var(--t);
+      font-family: 'JetBrains Mono', 'Courier New', monospace;
+      font-size: 13px;
+      line-height: 1.65;
+      min-height: 100vh;
+      padding: 0 16px 80px;
+    }
+
+    /* ── Header ───────────────────────────────────────────────── */
+    .header {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 36px 0 28px;
       display: flex;
-      flex-direction: column;
       align-items: center;
-      justify-content: center;
-      height: 100vh;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--br);
+      gap: 16px;
+      flex-wrap: wrap;
     }
 
-    .box {
-      background: #161b22;
-      border: 1px solid #30363d;
-      padding: 25px;
-      border-radius: 12px;
-      width: 400px;
-      text-align: center;
-      box-shadow: 0 0 20px rgba(0,0,0,0.5);
+    .logo { display: flex; align-items: center; gap: 14px; }
+
+    .logo-mark {
+      width: 44px; height: 44px;
+      background: linear-gradient(135deg, #1f6feb 0%, #8957e5 100%);
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 20px; font-weight: 700; color: #fff;
+      flex-shrink: 0;
+      box-shadow: 0 0 20px rgba(88,86,214,.35);
     }
 
-    h1 {
-      margin-bottom: 10px;
-      font-size: 22px;
-      color: #58a6ff;
+    .logo-text h1 { font-size: 17px; font-weight: 700; letter-spacing: -.3px; }
+
+    .logo-sub {
+      font-size: 10px; color: var(--mu);
+      letter-spacing: 1.5px; text-transform: uppercase;
+      margin-top: 2px;
     }
 
-    #content {
-      white-space: pre-wrap;
-      margin: 15px 0;
-      color: #c9d1d9;
+    .header-right { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+
+    .badge {
+      background: var(--s2); border: 1px solid var(--br);
+      border-radius: 6px; padding: 4px 10px;
+      font-size: 11px; color: var(--mu);
     }
 
-    #timer {
-      margin: 10px 0;
-      color: #8b949e;
+    #visit-count { font-size: 10px; color: var(--fa); }
+
+    /* ── Scan bar ─────────────────────────────────────────────── */
+    .scan-bar {
+      max-width: 960px; margin: 20px auto 0;
+      background: var(--s1); border: 1px solid var(--br);
+      border-radius: 8px; padding: 14px 18px;
+      display: flex; align-items: center; gap: 14px;
+      transition: border-color .4s ease;
     }
 
-    button {
-      margin-top: 15px;
-      padding: 10px 20px;
-      border: none;
+    #scan-label { font-size: 11px; color: var(--g); white-space: nowrap; min-width: 140px; }
+    #scan-pct   { font-size: 11px; color: var(--g); min-width: 32px; text-align: right; }
+
+    .track { flex: 1; height: 3px; background: var(--br); border-radius: 2px; overflow: hidden; }
+
+    #progress-fill {
+      height: 100%; width: 0%;
+      background: linear-gradient(90deg, #1f6feb, var(--g));
+      border-radius: 2px;
+      transition: width .35s cubic-bezier(.4,0,.2,1);
+      box-shadow: 0 0 8px rgba(63,185,80,.5);
+    }
+
+    /* ── Summary strip ────────────────────────────────────────── */
+    #summary {
+      max-width: 960px; margin: 16px auto 0;
+      background: var(--s1); border: 1px solid var(--br);
+      border-radius: 8px; padding: 18px 22px;
+      display: none;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 18px;
+    }
+
+    .s-item { display: flex; flex-direction: column; gap: 4px; }
+
+    .s-lbl {
+      font-size: 9px; color: var(--fa);
+      text-transform: uppercase; letter-spacing: 1.2px;
+    }
+
+    .s-val { font-size: 15px; font-weight: 700; color: var(--b); }
+    .s-val.sm { font-size: 13px; }
+    .s-val.xs { font-size: 11px; font-weight: 500; color: var(--p); letter-spacing: .5px; }
+
+    /* ── Grid ─────────────────────────────────────────────────── */
+    #main-grid {
+      max-width: 960px; margin: 16px auto 0;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+
+    @media (max-width: 660px) { #main-grid { grid-template-columns: 1fr; } }
+
+    .card-full { grid-column: 1 / -1; }
+
+    /* ── Card ─────────────────────────────────────────────────── */
+    .card {
+      background: var(--s1);
+      border: 1px solid var(--br);
       border-radius: 8px;
-      background: #238636;
-      color: white;
-      cursor: pointer;
-      font-size: 14px;
+      overflow: hidden;
     }
 
-    button:hover {
-      background: #2ea043;
+    .card-header {
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--br);
+      background: var(--s2);
+      display: flex; align-items: center; gap: 8px;
     }
 
-    #status {
-      margin-top: 15px;
-      font-style: italic;
-      color: #d29922;
+    .card-icon  { font-size: 13px; }
+
+    .card-title {
+      font-size: 10px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 1px;
+      color: var(--t);
     }
 
-    #visits {
-      margin-top: 10px;
-      font-size: 12px;
-      color: #6e7681;
+    /* ── Rows ─────────────────────────────────────────────────── */
+    .row {
+      display: flex; align-items: flex-start;
+      padding: 7px 14px; gap: 10px;
+      border-bottom: 1px solid var(--br2);
     }
+    .row:last-child { border-bottom: none; }
+
+    .lbl {
+      color: var(--mu); font-size: 10px;
+      min-width: 130px; flex-shrink: 0;
+      padding-top: 2px; line-height: 1.4;
+    }
+
+    .val { font-size: 11.5px; word-break: break-word; flex: 1; line-height: 1.5; }
+
+    /* colour helpers */
+    .blue   { color: var(--b); }
+    .green  { color: var(--g); }
+    .yellow { color: var(--y); }
+    .red    { color: var(--r); }
+    .purple { color: var(--p); }
+    .orange { color: var(--o); }
+    .dim    { color: var(--fa); font-size: 10px; }
+    .mono-sm{ font-size: 9.5px; word-break: break-all; line-height: 1.4; }
+
+    /* ── Tags ─────────────────────────────────────────────────── */
+    .tag {
+      display: inline-block; padding: 1px 7px;
+      border-radius: 4px; font-size: 9.5px;
+      font-weight: 700; text-transform: uppercase; letter-spacing: .4px;
+    }
+    .tag-green  { background: rgba(63,185,80,.14);  color: var(--g); }
+    .tag-red    { background: rgba(248,81,73,.14);  color: var(--r); }
+    .tag-yellow { background: rgba(210,153,34,.14); color: var(--y); }
+    .tag-blue   { background: rgba(88,166,255,.14); color: var(--b); }
+
+    /* ── Footer ───────────────────────────────────────────────── */
+    .footer {
+      max-width: 960px; margin: 44px auto 0;
+      padding-top: 20px; border-top: 1px solid var(--br);
+      text-align: center;
+      color: var(--fa); font-size: 10.5px; line-height: 1.9;
+    }
+    .footer a { color: var(--b); text-decoration: none; }
+    .footer a:hover { text-decoration: underline; }
+    .footer strong { color: var(--mu); }
+
+    /* ── Loading pulse ────────────────────────────────────────── */
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+    .loading { animation: pulse 1.4s ease-in-out infinite; color: var(--fa); font-size: 10px; }
   </style>
 </head>
-
 <body>
 
-  <div class="box">
-    <h1>mvadel.com</h1>
+  <!-- ── Header ──────────────────────────────────────────────────────── -->
+  <header class="header">
+    <div class="logo">
+      <div class="logo-mark">M</div>
+      <div class="logo-text">
+        <h1>mvadel.com</h1>
+        <div class="logo-sub">Browser Fingerprint Test</div>
+      </div>
+    </div>
+    <div class="header-right">
+      <span class="badge" id="timer">Session: 0s</span>
+      <span id="visit-count"></span>
+    </div>
+  </header>
 
-    <div id="content">Loading...</div>
-
-    <div id="timer">Initializing timer...</div>
-
-    <button onclick="sendRequest()">Send Request</button>
-
-    <div id="status"></div>
-
-    <div id="visits"></div>
+  <!-- ── Scan progress bar ────────────────────────────────────────────── -->
+  <div class="scan-bar" id="scan-bar">
+    <span id="scan-label">⟳ Initializing…</span>
+    <div class="track"><div id="progress-fill"></div></div>
+    <span id="scan-pct">0%</span>
   </div>
 
-  <script>
-    // Load hey.txt
-    fetch('hey.txt')
-      .then(res => res.text())
-      .then(text => {
-        document.getElementById('content').innerText = text;
-      })
-      .catch(() => {
-        document.getElementById('content').innerText = "could not load hey.txt";
-      });
+  <!-- ── Summary strip ────────────────────────────────────────────────── -->
+  <div id="summary">
+    <div class="s-item">
+      <span class="s-lbl">Public IP</span>
+      <span class="s-val" id="s-ip">—</span>
+    </div>
+    <div class="s-item">
+      <span class="s-lbl">Location</span>
+      <span class="s-val sm" id="s-loc">—</span>
+    </div>
+    <div class="s-item">
+      <span class="s-lbl">Browser</span>
+      <span class="s-val sm" id="s-browser">—</span>
+    </div>
+    <div class="s-item">
+      <span class="s-lbl">OS</span>
+      <span class="s-val sm" id="s-os">—</span>
+    </div>
+    <div class="s-item">
+      <span class="s-lbl">Fingerprint ID</span>
+      <span class="s-val xs" id="s-fp">—</span>
+    </div>
+  </div>
 
-    // Timer
-    let start = Date.now();
-    setInterval(() => {
-      let seconds = Math.floor((Date.now() - start) / 1000);
-      document.getElementById('timer').innerText =
-        "Session time: " + seconds + "s";
-    }, 1000);
+  <!-- ── Data cards ───────────────────────────────────────────────────── -->
+  <div id="main-grid"></div>
 
-    // Fake request system
-    const messages = [
-      "Processing request...",
-      "Checking server mood...",
-      "Request sent to nowhere...",
-      "Thinking...",
-      "Reconsidering your life choices..."
-    ];
+  <!-- ── Footer ──────────────────────────────────────────────────────── -->
+  <footer class="footer">
+    <p>
+      Everything above was collected <strong>entirely client-side</strong> —
+      no data was sent to any server. This is a <strong>transparency & awareness tool</strong>.
+    </p>
+    <p style="margin-top:6px">
+      Any website you visit can silently collect the same information. Stay aware.
+    </p>
+    <p style="margin-top:14px">
+      <a href="hey.txt">hey.txt</a> &nbsp;·&nbsp;
+      <a href="https://github.com/mvadel" target="_blank" rel="noopener noreferrer">github</a>
+    </p>
+  </footer>
 
-    const results = [
-      "Request accepted ✅",
-      "Denied ❌",
-      "Server confused 🤔",
-      "Try again later ⏳",
-      "Approved... but why?"
-    ];
-
-    function sendRequest() {
-      let status = document.getElementById('status');
-
-      let msg = messages[Math.floor(Math.random() * messages.length)];
-      status.innerText = msg;
-
-      setTimeout(() => {
-        let res = results[Math.floor(Math.random() * results.length)];
-        status.innerText = res;
-      }, 2000);
-    }
-
-    // Local visit counter
-    let visits = localStorage.getItem('visits') || 0;
-    visits++;
-    localStorage.setItem('visits', visits);
-
-    document.getElementById('visits').innerText =
-      "You visited this page " + visits + " times (locally)";
-  </script>
-
+  <script src="app.js"></script>
 </body>
 </html>
