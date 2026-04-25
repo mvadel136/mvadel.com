@@ -200,14 +200,20 @@ function getWebGLInfo() {
     const gl = c.getContext('webgl2') || c.getContext('webgl') || c.getContext('experimental-webgl');
     if (!gl) return null;
     const ext = gl.getExtension('WEBGL_debug_renderer_info');
+    const vendor = ext ? gl.getParameter(ext.UNMASKED_VENDOR_WEBGL) : gl.getParameter(gl.VENDOR);
+    const renderer = ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER);
+    
+    // Check for software rendering (VM/Bot indicator)
+    const isSoftware = /SwiftShader|llvmpipe|Microsoft Basic Render|Mesa/i.test(renderer);
+    
     return {
-      vendor:   ext ? gl.getParameter(ext.UNMASKED_VENDOR_WEBGL)   : gl.getParameter(gl.VENDOR),
-      renderer: ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER),
+      vendor, renderer,
       version:  gl.getParameter(gl.VERSION),
       glsl:     gl.getParameter(gl.SHADING_LANGUAGE_VERSION),
       maxTex:   gl.getParameter(gl.MAX_TEXTURE_SIZE),
       maxAA:    gl.getParameter(gl.MAX_SAMPLES) ?? 'N/A',
       extensions: gl.getSupportedExtensions()?.length || 0,
+      isSoftwareRenderer: isSoftware
     };
   } catch { return null; }
 }
@@ -377,6 +383,52 @@ function getGamepads() {
 }
 
 // ═══════════════════════════════════════════════════════════
+//  CYBERSECURITY FEATURES (NEW)
+// ═══════════════════════════════════════════════════════════
+
+// 1. Permissions Audit (Passive check: do we already have access?)
+async function getPermissionsStatus() {
+  if (!navigator.permissions) return null;
+  const perms = ['geolocation', 'notifications', 'camera', 'microphone', 'clipboard-read', 'clipboard-write'];
+  const results = {};
+  
+  for (const p of perms) {
+    try {
+      const status = await navigator.permissions.query({ name: p });
+      results[p] = status.state; // 'granted', 'denied', 'prompt'
+    } catch {
+      // Not all browsers support all permission names
+      results[p] = 'unsupported';
+    }
+  }
+  return results;
+}
+
+// 2. Bot & VM Detection
+function getBotDetection() {
+  return {
+    webdriver: navigator.webdriver, // True if Selenium/Puppeteer
+    languages: (navigator.languages && navigator.languages.length) ? navigator.languages.join(', ') : 'None', // Headless often empty
+    plugins: navigator.plugins?.length || 0, // Headless often 0
+    pdfViewer: navigator.pdfViewerEnabled, // False in some minimal builds
+    gpc: navigator.globalPrivacyControl, // Global Privacy Control signal
+  };
+}
+
+// 3. Input Device Consistency (Check for lies)
+function getInputConsistency() {
+  const hasTouch = navigator.maxTouchPoints > 0;
+  const isMobileUA = /Mobi|Android|iPhone/i.test(navigator.userAgent);
+  const hasCoarsePointer = window.matchMedia('(pointer: coarse)').matches;
+  
+  // If UA says mobile but no touch and fine pointer (mouse), might be a desktop spoofing mobile
+  if (isMobileUA && !hasTouch && !hasCoarsePointer) {
+    return { consistent: false, msg: "Mobile UA but Desktop inputs detected" };
+  }
+  return { consistent: true, msg: "Inputs match profile" };
+}
+
+// ═══════════════════════════════════════════════════════════
 //  SPEED TEST
 // ═══════════════════════════════════════════════════════════
 
@@ -469,12 +521,13 @@ async function main() {
 
   setProgress(5,'⟳ Fetching network data…');
 
-  const [ipData, canvasFP, webrtcResult, audioFP, battery, uaHints, reqHeaders, voices, mediaDev, mathFP, mediaCaps, adBlock, isIncognito] =
+  const [ipData, canvasFP, webrtcResult, audioFP, battery, uaHints, reqHeaders, voices, mediaDev, mathFP, mediaCaps, adBlock, isIncognito, perms, botInfo] =
     await Promise.all([
       fetchIPData(), getCanvasFP(), getWebRTCIPs(), getAudioFP(),
       getBattery(), getUAClientHints(), fetchRequestHeaders(),
       getSpeechVoices(), getMediaDevices(), getMathFP(),
-      getMediaCapabilities(), detectAdBlocker(), detectIncognito()
+      getMediaCapabilities(), detectAdBlocker(), detectIncognito(),
+      getPermissionsStatus(), getBotDetection()
     ]);
 
   setProgress(82,'⟳ Analysing…');
@@ -491,6 +544,7 @@ async function main() {
   const vpnLeak = checkVPNLeak(ipData);
   const gpuTime = getGPUBenchmark();
   const gamepads = getGamepads();
+  const inputCon = getInputConsistency();
 
   const fpID = await sha256([ua,canvasFP,audioFP,mathFP,screen.width,screen.height,
     navigator.language,navigator.hardwareConcurrency,navigator.deviceMemory,
@@ -510,87 +564,57 @@ async function main() {
   if (ipData) {
     row(netB,'Public IP',    c(ipData.ip,'blue')+(ipData.type?` <span class="dim">${ipData.type}</span>`:''));
     row(netB,'Country',      `${ipData.flag?.emoji||''} ${safeStr(ipData.country)} (${ipData.country_code})`);
-    row(netB,'Region / City',`${safeStr(ipData.region||'?')}, ${safeStr(ipData.city||'?')}`);
-    row(netB,'Coordinates',  `${Number(ipData.latitude).toFixed(4)}, ${Number(ipData.longitude).toFixed(4)} <span class="dim">\u00b150 km — IP-based</span>`);
-    row(netB,'ISP / Org',    c(safeStr(ipData.connection?.isp||ipData.connection?.org||'N/A'),'orange'));
-    row(netB,'ASN',          ipData.connection?.asn ? `AS${ipData.connection.asn}` : 'N/A');
+    row(netB,'Coordinates',  `${Number(ipData.latitude).toFixed(4)}, ${Number(ipData.longitude).toFixed(4)} <span class="dim">\u00b150 km</span>`);
+    row(netB,'ISP',    c(safeStr(ipData.connection?.isp||'N/A'),'orange'));
     row(netB,'Timezone (IP)',ipData.timezone?.id||'N/A');
-    if (ipData.is_eu===true)  row(netB,'EU Member',tag('Yes \u2014 GDPR applies','yellow'));
-    if (ipData.is_eu===false) row(netB,'EU Member',tag('No','green'));
-    if (ipData.postal) row(netB,'Postal Code',ipData.postal);
-    row(netB,'Data Source',  `<span class="dim">${ipData._src||'?'}</span>`);
-    if (ipData._raw) rawBlock(netB, ipData._raw);
   } else {
-    row(netB,'IP Lookup',tag('All 3 APIs failed','red'));
+    row(netB,'IP Lookup',tag('Failed','red'));
   }
   if (webrtcResult.local.length||webrtcResult.pub.length) {
-    if (webrtcResult.local.length) row(netB,'Local IP (WebRTC)',c(webrtcResult.local.join(', '),'red')+' '+tag('LEAK','red'));
-    if (webrtcResult.pub.length)   row(netB,'Public via WebRTC',c(webrtcResult.pub.join(', '),'yellow')+' '+tag('VPN bypass risk','yellow'));
+    if (webrtcResult.local.length) row(netB,'WebRTC Leak',c(webrtcResult.local.join(', '),'red')+' '+tag('LEAK','red'));
   } else {
-    row(netB,'WebRTC Leak',tag('No local IP leaked','green'));
+    row(netB,'WebRTC Leak',tag('Safe','green'));
   }
 
-  // ── 2. Privacy & Anonymity (New) ───────────────────────────────────────
+  // ── 2. Privacy & Anonymity ───────────────────────────────────────
   const privB = createCard('\uD83D\uDD75','Privacy & Anonymity');
   if (vpnLeak) {
     row(privB,'VPN / Proxy Leak', vpnLeak.leak ? tag('MISMATCH','red') : tag('Consistent','green'));
-    row(privB,'Timezone Detail', `<span class="dim">${vpnLeak.msg}</span>`);
   }
   row(privB,'Incognito Mode', isIncognito ? tag('Detected','yellow') : tag('Not Detected','green'));
   row(privB,'Ad-Blocker', adBlock ? tag('Active','green') : tag('Not Detected','yellow'));
+  row(privB,'GPC Signal', botInfo.gpc ? tag('Enabled (Do Not Sell)','green') : tag('Not Set','yellow'));
 
-  // ── 3. UA Client Hints ────────────────────────────────────────────────
-  const uaB = createCard('🔬','User-Agent Client Hints');
-  if (uaHints) {
-    row(uaB,'Platform',         c(uaHints.platform||'N/A','orange'));
-    row(uaB,'Platform Version', c(uaHints.platformVersion||'N/A','blue')+(uaHints.platform==='Android'?' '+tag('Real version','green'):''));
-    if (uaHints.model && uaHints.model!=='K') row(uaB,'Device Model',c(uaHints.model,'blue'));
-    row(uaB,'Architecture',     uaHints.architecture||'N/A');
-    row(uaB,'Bitness',          uaHints.bitness ? uaHints.bitness+'-bit' : 'N/A');
-    row(uaB,'Mobile',           uaHints.mobile ? tag('Yes','yellow') : tag('No','green'));
-    const brands = uaHints.fullVersionList?.filter(b=>!b.brand.includes('Not')).map(b=>`${safeStr(b.brand)} ${b.version}`).join('<br>') || 'N/A';
-    row(uaB,'Full Browser List',`<span class="mono-sm">${brands}</span>`);
-  } else {
-    row(uaB,'Status', tag('API not available','yellow'));
-  }
-
-  // ── 4. Browser & Runtime ──────────────────────────────────────────────
-  const brB = createCard('🔭','Browser & Runtime');
-  row(brB,'Browser',      c(`${browser.name} ${browser.version}`,'blue'));
-  row(brB,'Full Version', browser.fullVersion||'N/A');
-  row(brB,'Engine',       /Firefox/.test(ua)&&/Gecko/.test(ua)?'Gecko':/Trident/.test(ua)?'Trident':'Blink / WebKit');
-  row(brB,'User Agent',   `<span class="mono-sm">${safeStr(ua)}</span>`);
-  row(brB,'Language',     navigator.language);
-  row(brB,'All Languages',navigator.languages?.join(', ')||'N/A');
-  row(brB,'Cookies',      navigator.cookieEnabled?tag('Enabled','yellow'):tag('Disabled','green'));
-  row(brB,'Plugins',      navigator.plugins?.length>0?[...navigator.plugins].map(p=>safeStr(p.name)).join(', '):tag('None','green'));
-
-  // ── 5. Device & System ────────────────────────────────────────────────
-  const devB = createCard('💻','Device & System');
-  row(devB,'OS',          c(os,'orange'));
-  row(devB,'Platform',    safeStr(navigator.platform||'N/A'));
-  row(devB,'CPU Cores',   navigator.hardwareConcurrency?c(`${navigator.hardwareConcurrency} logical cores`,'purple'):'N/A');
-  row(devB,'Device Memory',navigator.deviceMemory?c(`\u2265 ${navigator.deviceMemory} GB`,'purple'):'N/A');
-  row(devB,'Touch Points',navigator.maxTouchPoints>0?`${navigator.maxTouchPoints} ${tag('touch','yellow')}`:`0`);
-  row(devB,'Online',      navigator.onLine?tag('Online','green'):tag('Offline','red'));
-  if (battery) {
-    row(devB,'Battery',   `${battery.level}% ${battery.charging?'\u26a1 Charging':'\uD83D\uDD0B Discharging'}`);
-  } else { row(devB,'Battery API',tag('N/A','yellow')); }
-
-  // ── 6. Hardware & Codecs (New) ─────────────────────────────────────────
-  const hwB = createCard('\uD83C\uDFAE','Hardware & Codecs');
-  if (mediaCaps) {
-    row(hwB,'HEVC / H.265', mediaCaps.hevc ? tag('Supported Smooth','green') : tag('No','red'));
-    row(hwB,'AV1', mediaCaps.av1 ? tag('Supported Smooth','green') : tag('No','red'));
-    row(hwB,'HDR', mediaCaps.hdr ? tag('High Dynamic Range','blue') : 'Standard');
-  }
-  if (gpuTime !== null) row(hwB,'GPU Render Time', `${gpuTime}ms <span class="dim">(benchmark)</span>`);
-  if (gamepads.length > 0) row(hwB,'Gamepads', gamepads.map(p => safeStr(p.id)).join(', '));
+  // ── 3. Security & Bot Detection (NEW) ───────────────────────────────────
+  const secB = createCard('\uD83D\uDD12','Security & Bot Detection');
+  row(secB,'Automation', botInfo.webdriver ? tag('DETECTED','red') : tag('None','green'));
+  row(secB,'Headless Indicators', (!botInfo.languages || botInfo.plugins === 0) ? tag('Suspicious','yellow') : tag('Normal','green'));
   
-  // ── 7. Interactive Permissions (New) ───────────────────────────────────
-  const permB = createCard('\uD83D\uDC41','Interactive Permissions');
+  if (webgl && webgl.isSoftwareRenderer) {
+    row(secB,'GPU Type', tag('Software Renderer (VM/Bot?)','yellow'));
+  } else {
+    row(secB,'GPU Type', tag('Hardware Accelerated','green'));
+  }
+  
+  if (!inputCon.consistent) {
+    row(secB,'Input Spoofing', tag('Suspected','red') + ` <span class="dim">${inputCon.msg}</span>`);
+  } else {
+    row(secB,'Input Spoofing', tag('None Detected','green'));
+  }
+
+  // ── 4. Permissions Audit (NEW) ──────────────────────────────────────────
+  const permB = createCard('\uD83D\uDC41','Permissions Audit (Passive)');
   row(permB, 'Camera Status', '<span id="cam-status">Click button to test</span>');
   row(permB, 'Camera Feed', '<video id="cam-feed" autoplay playsinline muted style="max-width:100%; max-height:120px; background:#000; border-radius:4px; display:none;"></video>');
+  
+  if (perms) {
+    const permHtml = Object.entries(perms).map(([k, v]) => {
+      const cls = v === 'granted' ? 'green' : v === 'denied' ? 'red' : 'yellow';
+      return `${k}: ${tag(v, cls)}`;
+    }).join(' &nbsp; ');
+    row(permB, 'Stored Permissions', permHtml);
+  }
+  
   const camBtn = document.createElement('button');
   camBtn.className = 'speed-run-btn';
   camBtn.textContent = '▶ Test Camera Access';
@@ -603,20 +627,43 @@ async function main() {
       const stream = await navigator.mediaDevices.getUserMedia({ video: true });
       videoEl.srcObject = stream;
       videoEl.style.display = 'block';
-      statusEl.innerHTML = tag('GRANTED','green') + ' <span class="dim">Stream active</span>';
+      statusEl.innerHTML = tag('GRANTED','green');
     } catch (err) {
-      statusEl.innerHTML = tag('DENIED','red') + ` <span class="dim">${safeStr(err.message)}</span>`;
+      statusEl.innerHTML = tag('DENIED','red');
     }
   };
   permB.appendChild(camBtn);
 
+  // ── 5. Browser & Runtime ──────────────────────────────────────────────
+  const brB = createCard('🔭','Browser & Runtime');
+  row(brB,'Browser',      c(`${browser.name} ${browser.version}`,'blue'));
+  row(brB,'Engine',       /Firefox/.test(ua)&&/Gecko/.test(ua)?'Gecko':/Trident/.test(ua)?'Trident':'Blink / WebKit');
+  row(brB,'PDF Viewer', botInfo.pdfViewer ? 'Enabled' : 'Disabled');
+  row(brB,'Cookies',      navigator.cookieEnabled?tag('Enabled','yellow'):tag('Disabled','green'));
+
+  // ── 6. Device & System ────────────────────────────────────────────────
+  const devB = createCard('💻','Device & System');
+  row(devB,'OS',          c(os,'orange'));
+  row(devB,'CPU Cores',   navigator.hardwareConcurrency?c(`${navigator.hardwareConcurrency} cores`,'purple'):'N/A');
+  row(devB,'Device Memory',navigator.deviceMemory?c(`\u2265 ${navigator.deviceMemory} GB`,'purple'):'N/A');
+  row(devB,'Touch Points',navigator.maxTouchPoints>0?`${navigator.maxTouchPoints}`:`0`);
+  if (battery) row(devB,'Battery',   `${battery.level}%`);
+
+  // ── 7. Hardware & Codecs ─────────────────────────────────────────
+  const hwB = createCard('\uD83C\uDFAE','Hardware & Codecs');
+  if (mediaCaps) {
+    row(hwB,'HEVC / H.265', mediaCaps.hevc ? tag('Supported','green') : tag('No','red'));
+    row(hwB,'AV1', mediaCaps.av1 ? tag('Supported','green') : tag('No','red'));
+    row(hwB,'HDR', mediaCaps.hdr ? tag('HDR','blue') : 'SDR');
+  }
+  if (gpuTime !== null) row(hwB,'GPU Render Time', `${gpuTime}ms`);
+  if (gamepads.length > 0) row(hwB,'Gamepads', gamepads.map(p => safeStr(p.id)).join(', '));
+
   // ── 8. Screen & Display ───────────────────────────────────────────────
   const scrB = createCard('\uD83D\uDDB5\uFE0F','Screen & Display');
-  row(scrB,'Screen Size',   c(`${screen.width} \u00d7 ${screen.height} px`,'blue'));
-  row(scrB,'Viewport',      `${window.innerWidth} \u00d7 ${window.innerHeight} px`);
-  row(scrB,'Pixel Ratio',   `${window.devicePixelRatio}\u00d7 ${window.devicePixelRatio>1?tag('HiDPI','blue'):''}`);
-  row(scrB,'Color Depth',   `${screen.colorDepth}-bit`);
-  row(scrB,'Color Gamut',   c(cssF.colorGamut,'green'));
+  row(scrB,'Screen Size',   c(`${screen.width} \u00d7 ${screen.height}`,'blue'));
+  row(scrB,'Viewport',      `${window.innerWidth} \u00d7 ${window.innerHeight}`);
+  row(scrB,'Pixel Ratio',   `${window.devicePixelRatio}\u00d7`);
   row(scrB,'Color Scheme',  window.matchMedia('(prefers-color-scheme: dark)').matches?'\uD83C\uDF19 Dark':'\u2600\uFE0F Light');
 
   // ── 9. Speed Test ─────────────────────────────────────────────────────
@@ -628,123 +675,61 @@ async function main() {
   spdBar.innerHTML=`<div class="speed-bar-bg"><div id="spd-bar" class="speed-bar-fill"></div></div>`;
   spdB.appendChild(spdBar);
   row(spdB,'Latency',  '<span id="spd-ping">—</span>');
-  row(spdB,'Downloaded','<span id="spd-bytes">—</span>');
   const spdBtn = document.createElement('button');
   spdBtn.className='speed-run-btn'; spdBtn.textContent='\u25b6 Run Speed Test';
   spdBtn.onclick = async () => {
     spdBtn.disabled=true; spdBtn.textContent='\u27f3 Testing\u2026';
-    await runSpeedTest(({phase,progress=0,mbps=0,ping,bytes,elapsed,msg})=>{
+    await runSpeedTest(({phase,progress=0,mbps=0,ping,msg})=>{
       const vEl=document.getElementById('spd-val');
       const bEl=document.getElementById('spd-bar');
-      if(phase==='ping')     { document.getElementById('spd-ping').textContent='measuring\u2026'; }
+      if(phase==='ping')     { document.getElementById('spd-ping').textContent='...'; }
       if(phase==='download') { if(vEl)vEl.textContent=Number(mbps).toFixed(1); if(bEl)bEl.style.width=Math.min(progress*100,100)+'%'; if(ping)document.getElementById('spd-ping').textContent=ping+' ms'; }
-      if(phase==='done')     { if(vEl)vEl.textContent=mbps; if(bEl)bEl.style.width='100%'; if(bytes)document.getElementById('spd-bytes').textContent=(bytes/1048576).toFixed(1)+' MB'; spdBtn.disabled=false; spdBtn.textContent='\u21ba Run Again'; }
-      if(phase==='error')    { if(vEl)vEl.textContent='ERR'; row(spdB,'Error',`<span class="red">${safeStr(msg||'Failed')}</span>`); spdBtn.disabled=false; spdBtn.textContent='\u21ba Retry'; }
+      if(phase==='done')     { if(vEl)vEl.textContent=mbps; if(bEl)bEl.style.width='100%'; spdBtn.disabled=false; spdBtn.textContent='\u21ba Run Again'; }
+      if(phase==='error')    { if(vEl)vEl.textContent='ERR'; spdBtn.disabled=false; spdBtn.textContent='\u21ba Retry'; }
     });
   };
   spdB.appendChild(spdBtn);
 
-  // ── 10. Connection ─────────────────────────────────────────────────────
-  const connB = createCard('\uD83D\uDCE1','Connection');
-  if (network) {
-    row(connB,'Effective Type', c((network.effectiveType||'N/A').toUpperCase(),'green'));
-    row(connB,'Downlink (est.)',network.downlink!=null?`~${network.downlink} Mbps`:'N/A');
-    row(connB,'RTT (est.)',     network.rtt!=null?`${network.rtt} ms`:'N/A');
-    row(connB,'Save Data',      network.saveData?tag('On','yellow'):tag('Off','green'));
-  } else {
-    row(connB,'Network Info API',tag('N/A','yellow'));
-  }
-  row(connB,'Protocol',        location.protocol==='https:'?tag('HTTPS','green'):tag('HTTP','red'));
-  row(connB,'Secure Context',  window.isSecureContext?tag('Yes','green'):tag('No','red'));
-
-  // ── 11. HTTP Request Inspector ─────────────────────────────────────────
+  // ── 10. HTTP Request Inspector ─────────────────────────────────────────
   const httpB = createCard('\uD83D\uDCE8','HTTP Request Inspector',true);
   if (reqHeaders?.headers) {
     const h = reqHeaders.headers;
-    const keys = ['User-Agent','Accept','Accept-Language','Accept-Encoding','Sec-Ch-Ua','Sec-Ch-Ua-Mobile','Sec-Ch-Ua-Platform'];
+    const keys = ['User-Agent','Accept','Accept-Language','Accept-Encoding','Sec-Ch-Ua'];
     for (const k of keys) {
       if (h[k]) row(httpB, k, `<span class="mono-sm">${safeStr(h[k])}</span>`);
     }
-    row(httpB,'Source',`<span class="dim">${reqHeaders._src||'httpbin'}</span>`);
-    rawBlock(httpB, reqHeaders.headers);
   } else {
     row(httpB,'Status',tag('Unreachable','red'));
   }
 
-  // ── 12. Canvas, WebGL & Audio ──────────────────────────────────────────
+  // ── 11. Fingerprints ──────────────────────────────────────────
   const fpB = createCard('\uD83C\uDFA8','Fingerprints');
   row(fpB,'Canvas FP',   c(canvasFP,'purple'));
   row(fpB,'Audio FP',    c(audioFP,'purple'));
   row(fpB,'Math FP',     c(mathFP,'purple'));
-  if (webgl) {
-    row(fpB,'GPU Renderer', `<span class="mono-sm">${safeStr(webgl.renderer)}</span>`);
-    row(fpB,'WebGL Version',safeStr(webgl.version));
-    row(fpB,'Max Texture',  `${fmt(webgl.maxTex)} px`);
-  } else {
-    row(fpB,'WebGL',tag('N/A','red'));
-  }
+  if (webgl) row(fpB,'GPU Renderer', `<span class="mono-sm">${safeStr(webgl.renderer)}</span>`);
 
-  // ── 13. Speech & Media ────────────────────────────────────────────────
-  const sndB = createCard('\uD83C\uDFA4','Speech & Media');
-  if (voices.length) {
-    row(sndB,'TTS Voices', `${voices.length} installed`);
-  } else {
-    row(sndB,'TTS Voices', tag('N/A','yellow'));
-  }
-  if (mediaDev) {
-    row(sndB,'Cameras',     `${mediaDev.counts.videoinput||0}`);
-    row(sndB,'Microphones', `${mediaDev.counts.audioinput||0}`);
-    row(sndB,'Speakers',    `${mediaDev.counts.audiooutput||0}`);
-  }
-
-  // ── 14. Fonts ─────────────────────────────────────────────────────────
+  // ── 12. Fonts ─────────────────────────────────────────────────────────
   const fntB = createCard('\uD83D\uDD24',`Fonts (${fonts.length})`,true);
   if (fonts.length>0) {
-    row(fntB,'Detected',fonts.map(f=>`<span style="font-family:'${f}',sans-serif;margin-right:10px">${safeStr(f)}</span>`).join(''));
+    row(fntB,'Detected',fonts.slice(0,10).map(f=>`<span style="font-family:'${f}',sans-serif;margin-right:10px">${safeStr(f)}</span>`).join(''));
   } else {
     row(fntB,'Result',tag('Blocked','yellow'));
   }
 
-  // ── 15. Storage & APIs ────────────────────────────────────────────────
+  // ── 13. Storage & APIs ────────────────────────────────────────────────
   const stB = createCard('\uD83D\uDD0C','Storage & APIs');
   const yn=(v,y='green',n='red')=>v?tag('Yes',y):tag('No',n);
   row(stB,'localStorage',   yn(storage.localStorage));
-  row(stB,'sessionStorage', yn(storage.sessionStorage));
   row(stB,'IndexedDB',      yn(storage.indexedDB));
   row(stB,'Service Worker', yn(storage.sw,'yellow','yellow'));
   row(stB,'WebAssembly',    yn(storage.wasm));
-  row(stB,'WebSockets',     yn(storage.ws));
-  row(stB,'Geolocation',    storage.geo?tag('Available','yellow'):tag('No','green'));
-  row(stB,'Notifications',  storage.notif?tag('Available','yellow'):tag('No','green'));
-  row(stB,'Web Bluetooth',  storage.bluetooth?tag('Supported','yellow'):tag('No','green'));
-  row(stB,'WebUSB',         storage.usb?tag('Supported','yellow'):tag('No','green'));
 
-  // ── 16. Time & Performance ────────────────────────────────────────────
+  // ── 14. Time & Performance ────────────────────────────────────────────
   const perfB = createCard('\u26a1','Time & Performance');
   row(perfB,'Timezone (JS)',   c(tz,'blue'));
   row(perfB,'UTC Offset',      `UTC${tzOff>=0?'+':''}${tzOff/60}`);
-  row(perfB,'Local Time',      safeStr(new Date().toLocaleString()));
   row(perfB,'Scan Duration',   c(Math.round(performance.now()-T0)+' ms','green'));
-  const loadMs=performance.timing?performance.timing.loadEventEnd-performance.timing.navigationStart:0;
-  row(perfB,'Page Load',       loadMs>0?c(loadMs+' ms','green'):'N/A');
-  row(perfB,'Visits (local)',  visits?c(`${visits}\u00d7`,'blue'):'1');
-
-  // ── 17. Tracking Surface ──────────────────────────────────────────────
-  const tsB = createCard('\uD83D\uDEE1\uFE0F','Tracking Surface',true);
-  const vectors = [
-    ['IP Address',       true, 'Visible to servers'],
-    ['User Agent',       true, 'HTTP header'],
-    ['Screen Resolution',true, 'screen.width'],
-    ['Timezone',         true, 'Intl API'],
-    ['Canvas FP',        canvasFP!=='blocked', '2D Render'],
-    ['WebGL / GPU',      webgl!==null, 'Hardware info'],
-    ['WebRTC Leak',      webrtcResult.local.length>0, 'Local IP'],
-    ['System Fonts',     fonts.length>0, 'Canvas text'],
-    ['Battery Level',    battery!==null, 'Hardware state'],
-  ];
-  for (const [name,exposed,note] of vectors) {
-    row(tsB, name, (exposed?tag('Exposed','red'):tag('Safe','green')) + ` <span class="dim">${note}</span>`);
-  }
 
   setProgress(100,'\u2713 Scan complete');
   setTimeout(()=>{
