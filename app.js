@@ -319,106 +319,65 @@ function getStorageSupport() {
 //  NEW FEATURES
 // ═══════════════════════════════════════════════════════════
 
-// 1. VPN Leak Check
 function checkVPNLeak(ipData) {
   if (!ipData || !ipData.timezone?.id) return null;
   const sysTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
   const ipTz = ipData.timezone.id;
-  if (sysTz !== ipTz) {
-    return { leak: true, sysTz, ipTz, msg: `System (${sysTz}) != IP (${ipTz})` };
-  }
+  if (sysTz !== ipTz) return { leak: true, sysTz, ipTz, msg: `System (${sysTz}) != IP (${ipTz})` };
   return { leak: false, sysTz, ipTz, msg: `System matches IP location` };
 }
 
-// 2. Incognito Detection (Chrome/Safari heuristic)
 async function detectIncognito() {
   return new Promise(resolve => {
     const fs = window.RequestFileSystem || window.webkitRequestFileSystem;
-    if ('storage' in navigator && 'estimate' in navigator.storage) {
-      navigator.storage.estimate().then(({ quota }) => {
-        // A very small quota (approx < 120MB) often indicates Private Mode on some browsers
-        // But FileSystem check is more reliable for Chrome.
-        if (quota && quota < 120000000) {
-           // This is a weak signal, mostly for older browsers or specific configurations
-        }
-      });
-    }
-    
     if (fs) {
-      // Chrome method
       const timeout = setTimeout(() => resolve(false), 100);
       fs(window.TEMPORARY, 100, () => { clearTimeout(timeout); resolve(false); }, () => { clearTimeout(timeout); resolve(true); });
-    } else {
-      // Firefox/Safari fallback checks could go here, but simple checks are often blocked.
-      // We assume false if API is missing to avoid false positives.
-      resolve(false);
-    }
+    } else { resolve(false); }
   });
 }
 
-// 3. Ad-Blocker Detection (Bait method)
 async function detectAdBlocker() {
   return new Promise(resolve => {
     const bait = document.createElement('div');
-    bait.className = 'adsbox ad-banner ad-placeholder ad-placeholder-top ad-banner-top';
+    bait.className = 'adsbox ad-banner ad-placeholder';
     bait.style.cssText = 'width: 1px; height: 1px; position: absolute; left: -999px; top: -999px;';
     document.body.appendChild(bait);
-    
     setTimeout(() => {
-      const blocked = bait.offsetParent === null || bait.offsetHeight === 0 || bait.offsetLeft === 0;
+      const blocked = bait.offsetParent === null || bait.offsetHeight === 0;
       bait.remove();
       resolve(blocked);
     }, 100);
   });
 }
 
-// 4. Media Capabilities (HDR/HEVC)
 async function getMediaCapabilities() {
   if (!navigator.mediaCapabilities) return null;
   try {
     const hevcConfig = { type: 'file', video: { contentType: 'video/hevc; level-id=180', width: 1920, height: 1080, bitrate: 1000000, framerate: 30 } };
     const av1Config = { type: 'file', video: { contentType: 'video/av01.0.04M.08', width: 1920, height: 1080, bitrate: 1000000, framerate: 30 } };
-    
-    const [hevc, av1] = await Promise.all([
-      navigator.mediaCapabilities.decodingInfo(hevcConfig),
-      navigator.mediaCapabilities.decodingInfo(av1Config)
-    ]);
-    
-    return {
-      hevc: hevc.supported && hevc.smooth,
-      av1: av1.supported && av1.smooth,
-      hdr: window.matchMedia('(dynamic-range: high)').matches
-    };
-  } catch {
-    return null;
-  }
-}
-
-// 5. GPU Benchmark (Simple render time test)
-function getGPUBenchmark() {
-  try {
-    const c = document.createElement('canvas');
-    c.width = 200; c.height = 200;
-    const gl = c.getContext('webgl') || c.getContext('experimental-webgl');
-    if (!gl) return null;
-    
-    const start = performance.now();
-    for (let i = 0; i < 100; i++) {
-      gl.clear(gl.COLOR_BUFFER_BIT);
-    }
-    const end = performance.now();
-    return Math.round(end - start);
+    const [hevc, av1] = await Promise.all([ navigator.mediaCapabilities.decodingInfo(hevcConfig), navigator.mediaCapabilities.decodingInfo(av1Config) ]);
+    return { hevc: hevc.supported && hevc.smooth, av1: av1.supported && av1.smooth, hdr: window.matchMedia('(dynamic-range: high)').matches };
   } catch { return null; }
 }
 
-// 6. Gamepad Detection
+function getGPUBenchmark() {
+  try {
+    const c = document.createElement('canvas'); c.width = 200; c.height = 200;
+    const gl = c.getContext('webgl') || c.getContext('experimental-webgl');
+    if (!gl) return null;
+    const start = performance.now();
+    for (let i = 0; i < 100; i++) gl.clear(gl.COLOR_BUFFER_BIT);
+    return Math.round(performance.now() - start);
+  } catch { return null; }
+}
+
 function getGamepads() {
-  const pads = navigator.getGamepads ? navigator.getGamepads() : [];
-  return pads.filter(p => p !== null);
+  return (navigator.getGamepads ? [...navigator.getGamepads()] : []).filter(p => p);
 }
 
 // ═══════════════════════════════════════════════════════════
-//  SPEED TEST (Cloudflare)
+//  SPEED TEST
 // ═══════════════════════════════════════════════════════════
 
 async function runSpeedTest(onUpdate) {
@@ -571,21 +530,20 @@ async function main() {
     row(netB,'WebRTC Leak',tag('No local IP leaked','green'));
   }
 
-  // ── 2. Privacy & Leaks (New) ───────────────────────────────────────────
+  // ── 2. Privacy & Anonymity (New) ───────────────────────────────────────
   const privB = createCard('\uD83D\uDD75','Privacy & Anonymity');
   if (vpnLeak) {
-    row(privB,'VPN Leak', vpnLeak.leak ? tag('Timezone Mismatch!','red') : tag('Timezone Consistent','green'));
-    row(privB,'Timezone Detail', vpnLeak.msg);
+    row(privB,'VPN / Proxy Leak', vpnLeak.leak ? tag('MISMATCH','red') : tag('Consistent','green'));
+    row(privB,'Timezone Detail', `<span class="dim">${vpnLeak.msg}</span>`);
   }
-  row(privB,'Incognito Mode', isIncognito ? tag('Detected','yellow') : tag('Not Detected / Normal','green'));
-  row(privB,'Ad-Blocker', adBlock ? tag('Detected','green') : tag('Not Detected','yellow'));
-  row(privB,'Do Not Track', navigator.doNotTrack==='1'?tag('Enabled','green'):navigator.doNotTrack==='0'?tag('Disabled','red'):tag('Unset','yellow'));
+  row(privB,'Incognito Mode', isIncognito ? tag('Detected','yellow') : tag('Not Detected','green'));
+  row(privB,'Ad-Blocker', adBlock ? tag('Active','green') : tag('Not Detected','yellow'));
 
-  // ── 3. User-Agent Client Hints ────────────────────────────────────────
+  // ── 3. UA Client Hints ────────────────────────────────────────────────
   const uaB = createCard('🔬','User-Agent Client Hints');
   if (uaHints) {
     row(uaB,'Platform',         c(uaHints.platform||'N/A','orange'));
-    row(uaB,'Platform Version', c(uaHints.platformVersion||'N/A','blue')+(uaHints.platform==='Android'?' '+tag('Real version — not UA-capped','green'):''));
+    row(uaB,'Platform Version', c(uaHints.platformVersion||'N/A','blue')+(uaHints.platform==='Android'?' '+tag('Real version','green'):''));
     if (uaHints.model && uaHints.model!=='K') row(uaB,'Device Model',c(uaHints.model,'blue'));
     row(uaB,'Architecture',     uaHints.architecture||'N/A');
     row(uaB,'Bitness',          uaHints.bitness ? uaHints.bitness+'-bit' : 'N/A');
@@ -593,7 +551,7 @@ async function main() {
     const brands = uaHints.fullVersionList?.filter(b=>!b.brand.includes('Not')).map(b=>`${safeStr(b.brand)} ${b.version}`).join('<br>') || 'N/A';
     row(uaB,'Full Browser List',`<span class="mono-sm">${brands}</span>`);
   } else {
-    row(uaB,'Status', tag('API not available — Firefox / Safari / older Chrome','yellow'));
+    row(uaB,'Status', tag('API not available','yellow'));
   }
 
   // ── 4. Browser & Runtime ──────────────────────────────────────────────
@@ -603,52 +561,40 @@ async function main() {
   row(brB,'Engine',       /Firefox/.test(ua)&&/Gecko/.test(ua)?'Gecko':/Trident/.test(ua)?'Trident':'Blink / WebKit');
   row(brB,'User Agent',   `<span class="mono-sm">${safeStr(ua)}</span>`);
   row(brB,'Language',     navigator.language);
+  row(brB,'All Languages',navigator.languages?.join(', ')||'N/A');
   row(brB,'Cookies',      navigator.cookieEnabled?tag('Enabled','yellow'):tag('Disabled','green'));
-  row(brB,'Plugins',      navigator.plugins?.length>0?[...navigator.plugins].map(p=>safeStr(p.name)).join(', '):tag('None detected','green'));
-  
+  row(brB,'Plugins',      navigator.plugins?.length>0?[...navigator.plugins].map(p=>safeStr(p.name)).join(', '):tag('None','green'));
+
   // ── 5. Device & System ────────────────────────────────────────────────
   const devB = createCard('💻','Device & System');
   row(devB,'OS',          c(os,'orange'));
   row(devB,'Platform',    safeStr(navigator.platform||'N/A'));
   row(devB,'CPU Cores',   navigator.hardwareConcurrency?c(`${navigator.hardwareConcurrency} logical cores`,'purple'):'N/A');
   row(devB,'Device Memory',navigator.deviceMemory?c(`\u2265 ${navigator.deviceMemory} GB`,'purple'):'N/A');
-  row(devB,'Touch Points',navigator.maxTouchPoints>0?`${navigator.maxTouchPoints} ${tag('touch device','yellow')}`:`0 \u2014 non-touch`);
-  row(devB,'Pointer',     cssF.pointer);
-  row(devB,'Hover',       cssF.hover?tag('Supports hover','green'):tag('No hover (touch)','yellow'));
+  row(devB,'Touch Points',navigator.maxTouchPoints>0?`${navigator.maxTouchPoints} ${tag('touch','yellow')}`:`0`);
   row(devB,'Online',      navigator.onLine?tag('Online','green'):tag('Offline','red'));
   if (battery) {
     row(devB,'Battery',   `${battery.level}% ${battery.charging?'\u26a1 Charging':'\uD83D\uDD0B Discharging'}`);
-  } else { row(devB,'Battery API',tag('Not available','yellow')); }
-  
-  // ── 6. Media & Codecs (New) ────────────────────────────────────────────
-  const medB = createCard('\uD83C\uDFA5','Media Capabilities');
+  } else { row(devB,'Battery API',tag('N/A','yellow')); }
+
+  // ── 6. Hardware & Codecs (New) ─────────────────────────────────────────
+  const hwB = createCard('\uD83C\uDFAE','Hardware & Codecs');
   if (mediaCaps) {
-    row(medB,'HEVC / H.265', mediaCaps.hevc ? tag('Supported Smooth','green') : tag('Not Smooth','red'));
-    row(medB,'AV1', mediaCaps.av1 ? tag('Supported Smooth','green') : tag('Not Smooth','red'));
-    row(medB,'HDR Display', mediaCaps.hdr ? tag('High Dynamic Range','green') : 'Standard Range');
-  } else {
-    row(medB,'Status', tag('API not available','yellow'));
+    row(hwB,'HEVC / H.265', mediaCaps.hevc ? tag('Supported Smooth','green') : tag('No','red'));
+    row(hwB,'AV1', mediaCaps.av1 ? tag('Supported Smooth','green') : tag('No','red'));
+    row(hwB,'HDR', mediaCaps.hdr ? tag('High Dynamic Range','blue') : 'Standard');
   }
+  if (gpuTime !== null) row(hwB,'GPU Render Time', `${gpuTime}ms <span class="dim">(benchmark)</span>`);
+  if (gamepads.length > 0) row(hwB,'Gamepads', gamepads.map(p => safeStr(p.id)).join(', '));
   
-  // ── 7. Hardware & Gamepads (New) ───────────────────────────────────────
-  const hwB = createCard('\uD83C\uDFAE','Hardware Interaction');
-  if (gpuTime !== null) {
-    row(hwB,'GPU Render Time', `${gpuTime}ms <span class="dim">(100 clear ops)</span>`);
-  }
-  if (gamepads.length > 0) {
-    row(hwB,'Gamepads', gamepads.map(p => safeStr(p.id)).join(', '));
-  } else {
-    row(hwB,'Gamepads', tag('None detected','yellow'));
-  }
-  
-  // ── 8. Interactive Permissions (New) ───────────────────────────────────
-  const permB = createCard('\uD83D\uDC41','Interactive Permissions Test');
+  // ── 7. Interactive Permissions (New) ───────────────────────────────────
+  const permB = createCard('\uD83D\uDC41','Interactive Permissions');
   row(permB, 'Camera Status', '<span id="cam-status">Click button to test</span>');
-  row(permB, 'Camera Feed', '<video id="cam-feed" autoplay playsinline muted style="max-width:100%; max-height:150px; background:#000; border-radius:4px; display:none;"></video>');
-  
+  row(permB, 'Camera Feed', '<video id="cam-feed" autoplay playsinline muted style="max-width:100%; max-height:120px; background:#000; border-radius:4px; display:none;"></video>');
   const camBtn = document.createElement('button');
   camBtn.className = 'speed-run-btn';
   camBtn.textContent = '▶ Test Camera Access';
+  camBtn.style.margin = '10px 14px';
   camBtn.onclick = async () => {
     const videoEl = document.getElementById('cam-feed');
     const statusEl = document.getElementById('cam-status');
@@ -657,23 +603,23 @@ async function main() {
       const stream = await navigator.mediaDevices.getUserMedia({ video: true });
       videoEl.srcObject = stream;
       videoEl.style.display = 'block';
-      statusEl.innerHTML = tag('GRANTED','green') + ' <span class="dim">Check if you were prompted.</span>';
+      statusEl.innerHTML = tag('GRANTED','green') + ' <span class="dim">Stream active</span>';
     } catch (err) {
-      statusEl.innerHTML = tag('DENIED / ERROR','red') + ` <span class="dim">${safeStr(err.message)}</span>`;
+      statusEl.innerHTML = tag('DENIED','red') + ` <span class="dim">${safeStr(err.message)}</span>`;
     }
   };
   permB.appendChild(camBtn);
 
-  // ── 9. Screen & Display ───────────────────────────────────────────────
+  // ── 8. Screen & Display ───────────────────────────────────────────────
   const scrB = createCard('\uD83D\uDDB5\uFE0F','Screen & Display');
   row(scrB,'Screen Size',   c(`${screen.width} \u00d7 ${screen.height} px`,'blue'));
   row(scrB,'Viewport',      `${window.innerWidth} \u00d7 ${window.innerHeight} px`);
-  row(scrB,'Pixel Ratio',   `${window.devicePixelRatio}\u00d7 ${window.devicePixelRatio>1?tag('HiDPI / Retina','blue'):''}`);
+  row(scrB,'Pixel Ratio',   `${window.devicePixelRatio}\u00d7 ${window.devicePixelRatio>1?tag('HiDPI','blue'):''}`);
   row(scrB,'Color Depth',   `${screen.colorDepth}-bit`);
   row(scrB,'Color Gamut',   c(cssF.colorGamut,'green'));
-  row(scrB,'Color Scheme',  window.matchMedia('(prefers-color-scheme: dark)').matches?'\uD83C\uDF19 Dark mode':'\u2600\uFE0F Light mode');
+  row(scrB,'Color Scheme',  window.matchMedia('(prefers-color-scheme: dark)').matches?'\uD83C\uDF19 Dark':'\u2600\uFE0F Light');
 
-  // ── 10. Speed Test ─────────────────────────────────────────────────────
+  // ── 9. Speed Test ─────────────────────────────────────────────────────
   const spdB = createCard('\uD83D\uDE80','Speed Test');
   const spdDisp = document.createElement('div'); spdDisp.className='speed-display';
   spdDisp.innerHTML=`<span id="spd-val" style="font-size:36px;font-weight:700;color:var(--g)">—</span> <span style="font-size:12px;color:var(--mu)">Mbps</span>`;
@@ -683,7 +629,6 @@ async function main() {
   spdB.appendChild(spdBar);
   row(spdB,'Latency',  '<span id="spd-ping">—</span>');
   row(spdB,'Downloaded','<span id="spd-bytes">—</span>');
-  row(spdB,'Provider',  '<span class="dim">Cloudflare</span>');
   const spdBtn = document.createElement('button');
   spdBtn.className='speed-run-btn'; spdBtn.textContent='\u25b6 Run Speed Test';
   spdBtn.onclick = async () => {
@@ -699,18 +644,60 @@ async function main() {
   };
   spdB.appendChild(spdBtn);
 
-  // ── 11. Canvas, WebGL & Audio ──────────────────────────────────────────
+  // ── 10. Connection ─────────────────────────────────────────────────────
+  const connB = createCard('\uD83D\uDCE1','Connection');
+  if (network) {
+    row(connB,'Effective Type', c((network.effectiveType||'N/A').toUpperCase(),'green'));
+    row(connB,'Downlink (est.)',network.downlink!=null?`~${network.downlink} Mbps`:'N/A');
+    row(connB,'RTT (est.)',     network.rtt!=null?`${network.rtt} ms`:'N/A');
+    row(connB,'Save Data',      network.saveData?tag('On','yellow'):tag('Off','green'));
+  } else {
+    row(connB,'Network Info API',tag('N/A','yellow'));
+  }
+  row(connB,'Protocol',        location.protocol==='https:'?tag('HTTPS','green'):tag('HTTP','red'));
+  row(connB,'Secure Context',  window.isSecureContext?tag('Yes','green'):tag('No','red'));
+
+  // ── 11. HTTP Request Inspector ─────────────────────────────────────────
+  const httpB = createCard('\uD83D\uDCE8','HTTP Request Inspector',true);
+  if (reqHeaders?.headers) {
+    const h = reqHeaders.headers;
+    const keys = ['User-Agent','Accept','Accept-Language','Accept-Encoding','Sec-Ch-Ua','Sec-Ch-Ua-Mobile','Sec-Ch-Ua-Platform'];
+    for (const k of keys) {
+      if (h[k]) row(httpB, k, `<span class="mono-sm">${safeStr(h[k])}</span>`);
+    }
+    row(httpB,'Source',`<span class="dim">${reqHeaders._src||'httpbin'}</span>`);
+    rawBlock(httpB, reqHeaders.headers);
+  } else {
+    row(httpB,'Status',tag('Unreachable','red'));
+  }
+
+  // ── 12. Canvas, WebGL & Audio ──────────────────────────────────────────
   const fpB = createCard('\uD83C\uDFA8','Fingerprints');
   row(fpB,'Canvas FP',   c(canvasFP,'purple'));
   row(fpB,'Audio FP',    c(audioFP,'purple'));
   row(fpB,'Math FP',     c(mathFP,'purple'));
   if (webgl) {
     row(fpB,'GPU Renderer', `<span class="mono-sm">${safeStr(webgl.renderer)}</span>`);
+    row(fpB,'WebGL Version',safeStr(webgl.version));
+    row(fpB,'Max Texture',  `${fmt(webgl.maxTex)} px`);
   } else {
-    row(fpB,'WebGL',tag('Not available','red'));
+    row(fpB,'WebGL',tag('N/A','red'));
   }
 
-  // ── 12. Fonts ─────────────────────────────────────────────────────────
+  // ── 13. Speech & Media ────────────────────────────────────────────────
+  const sndB = createCard('\uD83C\uDFA4','Speech & Media');
+  if (voices.length) {
+    row(sndB,'TTS Voices', `${voices.length} installed`);
+  } else {
+    row(sndB,'TTS Voices', tag('N/A','yellow'));
+  }
+  if (mediaDev) {
+    row(sndB,'Cameras',     `${mediaDev.counts.videoinput||0}`);
+    row(sndB,'Microphones', `${mediaDev.counts.audioinput||0}`);
+    row(sndB,'Speakers',    `${mediaDev.counts.audiooutput||0}`);
+  }
+
+  // ── 14. Fonts ─────────────────────────────────────────────────────────
   const fntB = createCard('\uD83D\uDD24',`Fonts (${fonts.length})`,true);
   if (fonts.length>0) {
     row(fntB,'Detected',fonts.map(f=>`<span style="font-family:'${f}',sans-serif;margin-right:10px">${safeStr(f)}</span>`).join(''));
@@ -718,17 +705,46 @@ async function main() {
     row(fntB,'Result',tag('Blocked','yellow'));
   }
 
-  // ── 13. Storage & APIs ────────────────────────────────────────────────
+  // ── 15. Storage & APIs ────────────────────────────────────────────────
   const stB = createCard('\uD83D\uDD0C','Storage & APIs');
-  const yn=(v,y='green',n='red')=>v?tag('Available',y):tag('No',n);
+  const yn=(v,y='green',n='red')=>v?tag('Yes',y):tag('No',n);
   row(stB,'localStorage',   yn(storage.localStorage));
+  row(stB,'sessionStorage', yn(storage.sessionStorage));
   row(stB,'IndexedDB',      yn(storage.indexedDB));
   row(stB,'Service Worker', yn(storage.sw,'yellow','yellow'));
   row(stB,'WebAssembly',    yn(storage.wasm));
   row(stB,'WebSockets',     yn(storage.ws));
-  row(stB,'Clipboard',      storage.clipboard?tag('Available','yellow'):tag('No','green'));
+  row(stB,'Geolocation',    storage.geo?tag('Available','yellow'):tag('No','green'));
+  row(stB,'Notifications',  storage.notif?tag('Available','yellow'):tag('No','green'));
   row(stB,'Web Bluetooth',  storage.bluetooth?tag('Supported','yellow'):tag('No','green'));
   row(stB,'WebUSB',         storage.usb?tag('Supported','yellow'):tag('No','green'));
+
+  // ── 16. Time & Performance ────────────────────────────────────────────
+  const perfB = createCard('\u26a1','Time & Performance');
+  row(perfB,'Timezone (JS)',   c(tz,'blue'));
+  row(perfB,'UTC Offset',      `UTC${tzOff>=0?'+':''}${tzOff/60}`);
+  row(perfB,'Local Time',      safeStr(new Date().toLocaleString()));
+  row(perfB,'Scan Duration',   c(Math.round(performance.now()-T0)+' ms','green'));
+  const loadMs=performance.timing?performance.timing.loadEventEnd-performance.timing.navigationStart:0;
+  row(perfB,'Page Load',       loadMs>0?c(loadMs+' ms','green'):'N/A');
+  row(perfB,'Visits (local)',  visits?c(`${visits}\u00d7`,'blue'):'1');
+
+  // ── 17. Tracking Surface ──────────────────────────────────────────────
+  const tsB = createCard('\uD83D\uDEE1\uFE0F','Tracking Surface',true);
+  const vectors = [
+    ['IP Address',       true, 'Visible to servers'],
+    ['User Agent',       true, 'HTTP header'],
+    ['Screen Resolution',true, 'screen.width'],
+    ['Timezone',         true, 'Intl API'],
+    ['Canvas FP',        canvasFP!=='blocked', '2D Render'],
+    ['WebGL / GPU',      webgl!==null, 'Hardware info'],
+    ['WebRTC Leak',      webrtcResult.local.length>0, 'Local IP'],
+    ['System Fonts',     fonts.length>0, 'Canvas text'],
+    ['Battery Level',    battery!==null, 'Hardware state'],
+  ];
+  for (const [name,exposed,note] of vectors) {
+    row(tsB, name, (exposed?tag('Exposed','red'):tag('Safe','green')) + ` <span class="dim">${note}</span>`);
+  }
 
   setProgress(100,'\u2713 Scan complete');
   setTimeout(()=>{
